@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PulseTorrent — Go BitTorrent Client</title>
+  <style>
+    :root {
+      --bg-base: #0b0f19;
+      --bg-panel: #111827;
+      --bg-card: #1e293b;
+      --bg-card-hover: #263449;
+      --border: #2e3c51;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      height: 60px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--emerald));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0b0f19;
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .stats-bar strong {
+      color: var(--text-main);
+      font-family: var(--font-mono);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    button, .btn {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.15s ease;
+    }
+
+    button:hover, .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #08101d;
+      border-color: transparent;
+    }
+
+    .btn-primary:hover {
+      background: #7dd3fc;
+      border-color: transparent;
+    }
+
+    .btn-demo {
+      background: rgba(16, 185, 129, 0.14);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-demo:hover {
+      background: rgba(16, 185, 129, 0.25);
+      border-color: #34d399;
+    }
+
+    .btn-danger:hover {
+      border-color: var(--rose);
+      color: var(--rose);
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 14px 18px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .torrent-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .torrent-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .torrent-item:hover {
+      background: var(--bg-card-hover);
+    }
+
+    .torrent-item.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent) inset;
+    }
+
+    .torrent-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 6px;
+      word-break: break-all;
+    }
+
+    .torrent-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .progress-track {
+      height: 6px;
+      background: #0f172a;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--emerald));
+      width: 0%;
+      transition: width 0.25s ease;
+    }
+
+    .status-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-Downloading { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+    .status-Completed { background: rgba(16, 185, 129, 0.16); color: #34d399; }
+    .status-Paused, .status-Stalled { background: rgba(245, 158, 11, 0.16); color: var(--amber); }
+    .status-Error, .status-Stopped { background: rgba(244, 63, 94, 0.16); color: var(--rose); }
+
+    .inspector {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 24px;
+      gap: 20px;
+    }
+
+    .empty-state {
+      margin: auto;
+      text-align: center;
+      max-width: 440px;
+      color: var(--text-muted);
+    }
+
+    .empty-state h2 {
+      color: var(--text-main);
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .inspector-header {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .inspector-title h2 {
+      font-size: 18px;
+      margin-bottom: 6px;
+      word-break: break-all;
+    }
+
+    .hash-badge {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-base);
+      padding: 4px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      display: inline-block;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .kpi-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 18px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    .panel-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .piece-legend {
+      display: flex;
+      gap: 14px;
+      font-size: 11px;
+      text-transform: none;
+      font-weight: 500;
+    }
+
+    .legend-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      margin-right: 4px;
+    }
+
+    .piece-map {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-height: 170px;
+      overflow-y: auto;
+      padding: 4px;
+      background: var(--bg-base);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .piece-cell {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      background: #1e293b;
+      transition: background 0.2s ease;
+    }
+
+    .piece-cell.s-1 {
+      background: var(--amber);
+      box-shadow: 0 0 6px var(--amber);
+    }
+
+    .piece-cell.s-2 {
+      background: var(--emerald);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .table-list {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      max-height: 160px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .table-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: var(--bg-base);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .log-console {
+      background: #070a12;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      height: 170px;
+      overflow-y: auto;
+      color: #cbd5e1;
+      line-height: 1.55;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 15, 0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 480px;
+      padding: 24px;
+    }
+
+    .modal h3 {
+      margin-bottom: 16px;
+      font-size: 17px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-size: 13px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-badge">BT</div>
+      <span>PulseTorrent <span style="font-weight:400; color:var(--text-muted); font-size:13px;">BitTorrent Wire Client</span></span>
+    </div>
+    <div class="stats-bar">
+      <div>Active Torrents: <strong id="globalCount">0</strong></div>
+      <div>Down Speed: <strong id="globalSpeed">0 B/s</strong></div>
+      <div>Connected Peers: <strong id="globalPeers">0</strong></div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn-demo" onclick="startLocalDemo()">Run Live Swarm Demo</button>
+      <button type="button" class="btn-primary" onclick="openUploadModal()">+ Add .torrent File</button>
+    </div>
+  </header>
+
+  <main>
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span>Transfers</span>
+        <span id="sidebarStatus">Live</span>
+      </div>
+      <div class="torrent-list" id="torrentList"></div>
+    </aside>
+
+    <section class="inspector" id="inspectorView">
+      <div class="empty-state">
+        <h2>No Active Torrent Selected</h2>
+        <p>Upload any standard <code>.torrent</code> file to start downloading from HTTP/UDP trackers and DHT, or launch a self-contained local multi-seeder swarm to watch real-time piece pipelining and SHA-1 verification.</p>
+        <div style="display:flex; gap:10px; justify-content:center;">
+          <button type="button" class="btn-demo" onclick="startLocalDemo()">Launch Instant Swarm Demo</button>
+          <button type="button" class="btn-primary" onclick="openUploadModal()">+ Open .torrent File</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="uploadModal">
+    <div class="modal">
+      <h3>Add .torrent Transfer</h3>
+      <form id="uploadForm" onsubmit="submitTorrent(event)">
+        <div class="form-group">
+          <label>Select .torrent File</label>
+          <input type="file" id="torrentFileInput" accept=".torrent" required />
+        </div>
+        <div class="form-group">
+          <label>Destination Directory</label>
+          <input type="text" id="outputDirInput" placeholder="/path/to/downloads" />
+        </div>
+        <div class="form-group">
+          <label>Additional Direct Peers (Optional, comma-separated IP:Port)</label>
+          <input type="text" id="customPeersInput" placeholder="e.g. 127.0.0.1:6881" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="closeUploadModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Start Download</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let state = {
+      torrents: [],
+      selectedId: null,
+      defaultOut: ""
+    };
+
+    function formatBytes(bytes) {
+      if (!bytes || bytes <= 0) return "0 B";
+      const units = ["B", "KiB", "MiB", "GiB"];
+      const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+      return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 2) + " " + units[i];
+    }
+
+    function openUploadModal() {
+      const outInput = document.getElementById("outputDirInput");
+      if (!outInput.value && state.defaultOut) {
+        outInput.value = state.defaultOut;
+      }
+      document.getElementById("uploadModal").classList.add("open");
+    }
+
+    function closeUploadModal() {
+      document.getElementById("uploadModal").classList.remove("open");
+    }
+
+    async function submitTorrent(e) {
+      e.preventDefault();
+      const fileInput = document.getElementById("torrentFileInput");
+      if (!fileInput.files.length) return;
+
+      const fd = new FormData();
+      fd.append("torrent", fileInput.files[0]);
+      fd.append("outputDir", document.getElementById("outputDirInput").value);
+      fd.append("customPeers", document.getElementById("customPeersInput").value);
+
+      const res = await fetch("/api/torrents/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to add torrent");
+        return;
+      }
+      state.selectedId = data.id;
+      closeUploadModal();
+      fileInput.value = "";
+      fetchState();
+    }
+
+    async function startLocalDemo() {
+      const res = await fetch("/api/torrents/demo", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to start demo");
+        return;
+      }
+      state.selectedId = data.id;
+      fetchState();
+    }
+
+    async function torrentAction(id, action, evt) {
+      if (evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+      }
+      try {
+        const res = await fetch("/api/torrents/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, action })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          console.error("Action failed:", errData);
+        }
+        if (action === "remove" && state.selectedId === id) {
+          state.selectedId = null;
+        }
+        await fetchState();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function fetchState() {
+      try {
+        const res = await fetch("/api/torrents");
+        const data = await res.json();
+        state.defaultOut = data.defaultOut || "";
+        state.torrents = data.torrents || [];
+        if (state.selectedId && !state.torrents.some(t => t.id === state.selectedId)) {
+          state.selectedId = state.torrents.length > 0 ? state.torrents[0].id : null;
+        } else if (!state.selectedId && state.torrents.length > 0) {
+          state.selectedId = state.torrents[0].id;
+        }
+        render();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function render() {
+      let totalSpeed = 0;
+      let totalPeers = 0;
+      state.torrents.forEach(t => {
+        totalSpeed += t.speedBps || 0;
+        totalPeers += t.activePeers || 0;
+      });
+
+      document.getElementById("globalCount").textContent = state.torrents.length;
+      document.getElementById("globalSpeed").textContent = formatBytes(totalSpeed) + "/s";
+      document.getElementById("globalPeers").textContent = totalPeers;
+
+      const listEl = document.getElementById("torrentList");
+      if (state.torrents.length === 0) {
+        listEl.innerHTML = `<div style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px;">No transfers yet. Click <b>Run Live Swarm Demo</b> or upload a <code>.torrent</code> file.</div>`;
+      } else {
+        listEl.innerHTML = state.torrents.map(t => {
+          const pct = t.totalPieces > 0 ? ((t.completedPieces / t.totalPieces) * 100).toFixed(1) : 0;
+          const activeCls = t.id === state.selectedId ? "active" : "";
+          const statusKey = (t.status || "").split(" ")[0];
+          const pLabel = t.status === "Paused" ? "Resume" : "Pause";
+          return `
+            <div class="torrent-item ${activeCls}" onclick="selectTorrent('${t.id}')">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
+                <div class="torrent-title" style="margin-bottom:0;">${escapeHtml(t.name)}</div>
+                <div style="display:flex; gap:4px; flex-shrink:0;">
+                  <button type="button" style="padding:3px 7px; font-size:11px;" onclick="torrentAction('${t.id}', 'pause', event)">${pLabel}</button>
+                  <button type="button" style="padding:3px 7px; font-size:11px;" onclick="torrentAction('${t.id}', 'stop', event)">Stop</button>
+                  <button type="button" class="btn-danger" style="padding:3px 7px; font-size:11px;" onclick="torrentAction('${t.id}', 'remove', event)">Remove</button>
+                </div>
+              </div>
+              <div class="torrent-meta">
+                <span>${formatBytes(t.downloaded)} / ${formatBytes(t.totalSize)} (${pct}%)</span>
+                <span class="status-pill status-${statusKey}">${escapeHtml(t.status)}</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" style="width:${pct}%"></div>
+              </div>
+              <div class="torrent-meta" style="margin-bottom:0;">
+                <span>Peers: ${t.activePeers}/${t.totalPeers}</span>
+                <span>${formatBytes(t.speedBps)}/s</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      const selected = state.torrents.find(t => t.id === state.selectedId);
+      const inspector = document.getElementById("inspectorView");
+      if (!selected) {
+        inspector.innerHTML = `
+          <div class="empty-state">
+            <h2>No Active Torrent Selected</h2>
+            <p>Upload any standard <code>.torrent</code> file to start downloading from HTTP/UDP trackers and DHT, or launch a self-contained local multi-seeder swarm to watch real-time piece pipelining and SHA-1 verification.</p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+              <button type="button" class="btn-demo" onclick="startLocalDemo()">Launch Instant Swarm Demo</button>
+              <button type="button" class="btn-primary" onclick="openUploadModal()">+ Open .torrent File</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const pct = selected.totalPieces > 0 ? ((selected.completedPieces / selected.totalPieces) * 100).toFixed(1) : 0;
+      const pauseLabel = selected.status === "Paused" ? "Resume" : "Pause";
+
+      const rawStatuses = Array.isArray(selected.pieceStatuses) ? selected.pieceStatuses : [];
+      const maxCells = 600;
+      const step = Math.max(1, Math.ceil(rawStatuses.length / maxCells));
+      let piecesHtml = "";
+      for (let i = 0; i < rawStatuses.length; i += step) {
+        let st = rawStatuses[i];
+        for (let j = i; j < Math.min(i + step, rawStatuses.length); j++) {
+          if (rawStatuses[j] === 1) { st = 1; break; }
+          if (rawStatuses[j] === 2) { st = 2; }
+        }
+        const label = step > 1 ? `Pieces #${i}..#${Math.min(i + step - 1, rawStatuses.length - 1)}` : `Piece #${i}`;
+        piecesHtml += `<div class="piece-cell s-${st}" title="${label}"></div>`;
+      }
+
+      const filesHtml = (selected.files || []).map(f => `
+        <div class="table-row">
+          <span>${escapeHtml(f.path)}</span>
+          <span style="color:var(--text-muted)">${formatBytes(f.length)}</span>
+        </div>
+      `).join("");
+
+      const peersHtml = (selected.peersList || []).length
+        ? selected.peersList.map(p => `
+            <div class="table-row">
+              <span>${escapeHtml(p)}</span>
+              <span style="color:var(--emerald)">BitTorrent TCP</span>
+            </div>
+          `).join("")
+        : `<div style="color:var(--text-muted); padding:6px;">No peers discovered yet</div>`;
+
+      const logsHtml = (selected.logs || []).slice().reverse().map(l =>
+        `<div>${escapeHtml(l)}</div>`
+      ).join("");
+
+      inspector.innerHTML = `
+        <div class="inspector-header">
+          <div class="inspector-title">
+            <h2>${escapeHtml(selected.name)}</h2>
+            <div class="hash-badge">INFOHASH: ${selected.infoHash}</div>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:8px;">
+              Save Path: <code>${escapeHtml(selected.outputDir)}</code> &bull; Tracker: <code>${escapeHtml(selected.announce)}</code>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" onclick="torrentAction('${selected.id}', 'pause', event)">${pauseLabel}</button>
+            <button type="button" onclick="torrentAction('${selected.id}', 'stop', event)">Stop</button>
+            <button type="button" class="btn-danger" onclick="torrentAction('${selected.id}', 'remove', event)">Remove</button>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Progress</div>
+            <div class="kpi-value">${pct}% <span style="font-size:13px; color:var(--text-muted); font-weight:400;">(${selected.completedPieces}/${selected.totalPieces} pcs)</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Download Speed</div>
+            <div class="kpi-value" style="color:var(--accent)">${formatBytes(selected.speedBps)}/s</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Transferred / Size</div>
+            <div class="kpi-value">${formatBytes(selected.downloaded)} <span style="font-size:12px; color:var(--text-muted);">/ ${formatBytes(selected.totalSize)}</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Piece Size &amp; Peers</div>
+            <div class="kpi-value">${formatBytes(selected.pieceLength)} <span style="font-size:12px; color:var(--emerald);">(${selected.activePeers} active)</span></div>
+          </div>
+        </div>
+
+        <div class="panel-box">
+          <div class="panel-title">
+            <span>SHA-1 Piece Verification Map (${selected.totalPieces} Pieces)</span>
+            <div class="piece-legend">
+              <span><i class="legend-dot" style="background:#1e293b"></i>Pending</span>
+              <span><i class="legend-dot" style="background:var(--amber)"></i>Pipelining (16 KiB blocks)</span>
+              <span><i class="legend-dot" style="background:var(--emerald)"></i>SHA-1 Verified</span>
+            </div>
+          </div>
+          <div class="piece-map">${piecesHtml}</div>
+        </div>
+
+        <div class="two-col">
+          <div class="panel-box">
+            <div class="panel-title"><span>Files in Torrent (${(selected.files || []).length})</span></div>
+            <div class="table-list">${filesHtml}</div>
+          </div>
+          <div class="panel-box">
+            <div class="panel-title"><span>Swarm Peers (${(selected.peersList || []).length})</span></div>
+            <div class="table-list">${peersHtml}</div>
+          </div>
+        </div>
+
+        <div class="panel-box">
+          <div class="panel-title"><span>Peer Wire Protocol Event Log</span></div>
+          <div class="log-console">${logsHtml}</div>
+        </div>
+      `;
+    }
+
+    function selectTorrent(id) {
+      state.selectedId = id;
+      render();
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    fetchState();
+    setInterval(fetchState, 600);
+  </script>
+</body>
+</html>

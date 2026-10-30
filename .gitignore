@@ -2,3 +2,6 @@ go.sum
 *.torrent
 *.txt
 *.png
+pulsetorrent
+downloads/
+.DS_Store
